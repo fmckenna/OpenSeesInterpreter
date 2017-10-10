@@ -38,6 +38,8 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
 /* Python interpreter main program */
 
+#if PY_MAJOR_VERSION < 3
+
 #include <Python.h>
 #include <osdefs.h>
 #include <code.h> /* For CO_FUTURE_DIVISION */
@@ -272,6 +274,7 @@ static int RunMainFromImporter(char *filename)
 
 }
 
+#endif
 
 /*
 static char module_docstring[] =
@@ -331,7 +334,7 @@ PythonInterpreter::PythonInterpreter(int argc, char **argv)
     
     fprintf(stderr,"\t    (c) Copyright 2015-2017 The Regents of the University of California");
     fprintf(stderr,"\n\t\t\t\t All Rights Reserved\n\n\n");    
-    
+#if PY_MAJOR_VERSION < 3    
     int c;
     int sts;
     char *command = NULL;
@@ -778,7 +781,7 @@ PythonInterpreter::PythonInterpreter(int argc, char **argv)
      */
     _Py_ReleaseInternedStrings();
 #endif /* __INSURE__ */
-
+#endif
     //    return sts;
 }
 
@@ -808,18 +811,26 @@ PythonInterpreter::getNumRemainingInputArgs(void) {
 }
 
 int 
-PythonInterpreter::getInt(int *data, int numArgs) {
+PythonInterpreter::getInt(int *data, int numArgs)
+{
     if ((wrapper.getNumberArgs() - wrapper.getCurrentArg()) < numArgs) {
-	return -1;
+        return -1;
     }
-
-    for (int i=0; i<numArgs; i++) {
-	PyObject *o = PyTuple_GetItem(wrapper.getCurrentArgv(),wrapper.getCurrentArg());
-	wrapper.incrCurrentArg();
-	if (!PyInt_Check(o)) {
-	    return -1;
-	}
-	data[i] = PyInt_AS_LONG(o);
+    
+    for (int i = 0; i < numArgs; i++) {
+        PyObject *o = PyTuple_GetItem(wrapper.getCurrentArgv(), wrapper.getCurrentArg());
+        wrapper.incrCurrentArg();
+#if PY_MAJOR_VERSION >= 3
+        if (!PyLong_Check(o)) {
+            return -1;
+        }
+        data[i] = PyLong_AS_LONG(o);
+#else
+        if (!PyInt_Check(o)) {
+            return -1;
+        }
+        data[i] = PyInt_AS_LONG(o);
+#endif
     }
     
     return 0;
@@ -844,20 +855,28 @@ PythonInterpreter::getDouble(double *data, int numArgs) {
 }
 
 const char* 
-PythonInterpreter::getString() {
-    
+PythonInterpreter::getString()
+{
     if (wrapper.getCurrentArg() >= wrapper.getNumberArgs()) {
-	return 0;
+        return 0;
     }
     
-    PyObject *o = PyTuple_GetItem(wrapper.getCurrentArgv(),wrapper.getCurrentArg());
+    PyObject *o = PyTuple_GetItem(wrapper.getCurrentArgv(), wrapper.getCurrentArg());
     wrapper.incrCurrentArg();
-    if (!PyString_Check(o)) {
-	return 0;
+#if PY_MAJOR_VERSION >= 3
+    if (!PyUnicode_Check(o)) {
+        return 0;
     }
     
+    return PyUnicode_AsUTF8(o);
+#else
+    if (!PyString_Check(o)) {
+        return 0;
+    }
     
-    return PyString_AS_STRING(o);;
+    return PyString_AS_STRING(o);
+#endif
+
 }
 
 int 
